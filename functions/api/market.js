@@ -46,6 +46,13 @@ const YAHOO_INDICES = {
   "^VIX": "%5EVIX"
 };
 
+const YAHOO_FUTURES = {
+  "ES=F": "ES%3DF",
+  "NQ=F": "NQ%3DF",
+  "YM=F": "YM%3DF",
+  "RTY=F": "RTY%3DF"
+};
+
 const NASDAQ_INDEX = {
   "^IXIC": "COMP",
   "^NDX": "NDX"
@@ -65,6 +72,23 @@ const MAX_PERCENT = 60;
 
 function themeSymbols() {
   return [...new Set(Object.values(GROUPS.themeMembers).flat().map(([symbol]) => symbol))];
+}
+
+function priorityThemeSymbols(limitPerTheme = 3) {
+  const selected = [];
+  const seen = new Set();
+  for (const [theme] of GROUPS.themes) {
+    let count = 0;
+    for (const [symbol] of GROUPS.themeMembers[theme] || []) {
+      if (!seen.has(symbol)) {
+        selected.push(symbol);
+        seen.add(symbol);
+        count += 1;
+      }
+      if (count >= limitPerTheme) break;
+    }
+  }
+  return selected;
 }
 
 function futureSymbols() {
@@ -161,6 +185,23 @@ async function fetchYahooIndices() {
   return results;
 }
 
+async function fetchYahooFutures() {
+  const results = [];
+  for (const [symbol, encoded] of Object.entries(YAHOO_FUTURES)) {
+    const data = await fetchJson(`https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?interval=1d&range=5d`);
+    const item = data?.chart?.result?.[0];
+    const meta = item?.meta || {};
+    const price = asFloat(meta.regularMarketPrice);
+    const previous = asFloat(meta.chartPreviousClose || meta.previousClose);
+    const change = price != null && previous ? price - previous : null;
+    const percent = change != null && previous ? (change / previous) * 100 : null;
+    const quote = quoteTemplate(symbol, Object.fromEntries(GROUPS.futures)[symbol], price, change, percent, "Yahoo 期货");
+    quote.previousClose = previous;
+    if (validFuture(quote)) results.push(quote);
+  }
+  return results;
+}
+
 async function fetchNasdaqIndices() {
   const results = [];
   for (const [symbol, nasdaqSymbol] of Object.entries(NASDAQ_INDEX)) {
@@ -181,7 +222,7 @@ async function fetchNasdaqIndices() {
 }
 
 async function fetchNasdaqQuote(symbol) {
-  for (const assetclass of ["stocks", "etf"]) {
+  for (const assetclass of ["stocks"]) {
     try {
       const data = await fetchJson(`https://api.nasdaq.com/api/quote/${encodeURIComponent(symbol)}/info?assetclass=${assetclass}`, {
         headers: {
@@ -289,7 +330,8 @@ async function buildPayload() {
   const quotes = {};
   const errors = [];
   const sources = [];
-  const stocks = themeSymbols();
+  const allStocks = themeSymbols();
+  const stocks = priorityThemeSymbols(3);
   const futures = futureSymbols();
   const indexSymbols = GROUPS.indices.map(([symbol]) => symbol);
 
@@ -303,27 +345,22 @@ async function buildPayload() {
   }
 
   try {
-    const items = await fetchYahooQuotes([...stocks, ...futures]);
-    if (merge(quotes, items, stocks, validStock)) sources.push("Yahoo 个股");
-    if (merge(quotes, items, futures, validFuture)) sources.push("Yahoo 期货");
+    const items = await fetchNasdaqQuotes(stocks);
+    if (merge(quotes, items, stocks, validStock)) sources.push("Nasdaq 核心成分股");
   } catch (error) {
-    errors.push(`fetchYahooQuotes: ${error.message}`);
+    errors.push(`fetchNasdaqQuotes: ${error.message}`);
   }
 
-  const missingStocks = stocks.filter((symbol) => !quotes[symbol]);
-  if (missingStocks.length) {
-    try {
-      const fallbackSymbols = missingStocks.slice(0, 18);
-      const items = await fetchNasdaqQuotes(fallbackSymbols);
-      if (merge(quotes, items, fallbackSymbols, validStock)) sources.push("Nasdaq 补充个股");
-    } catch (error) {
-      errors.push(`fetchNasdaqQuotes: ${error.message}`);
-    }
+  try {
+    const items = await fetchYahooFutures();
+    if (merge(quotes, items, futures, validFuture)) sources.push("Yahoo 期货");
+  } catch (error) {
+    errors.push(`fetchYahooFutures: ${error.message}`);
   }
 
   const warnings = [];
   if (!indexSymbols.some((symbol) => quotes[symbol])) warnings.push("真实指数点位暂时没有返回。");
-  if (!stocks.some((symbol) => quotes[symbol])) warnings.push("个股行情暂时没有返回，主题板块会留空。");
+  if (!stocks.some((symbol) => quotes[symbol])) warnings.push("核心成分股暂时没有返回，主题板块会留空。");
   if (!futures.some((symbol) => quotes[symbol])) warnings.push("股指期货暂时没有返回。");
 
   return {
@@ -333,6 +370,10 @@ async function buildPayload() {
     groups: GROUPS,
     quotes,
     validation: validation(quotes),
+    coverage: {
+      requestedCoreStocks: stocks.length,
+      allThemeStocks: allStocks.length
+    },
     ...(warnings.length ? { warning: warnings.join("；") } : {}),
     ...(errors.length ? { detail: errors.slice(-4).join("；") } : {})
   };
