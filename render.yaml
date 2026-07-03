@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: us-market-radar
+    runtime: python
+    plan: free
+    buildCommand: ""
+    startCommand: python server.py
