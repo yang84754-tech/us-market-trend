@@ -291,21 +291,15 @@ async function buildPayload() {
   const sources = [];
   const stocks = themeSymbols();
   const futures = futureSymbols();
+  const indexSymbols = GROUPS.indices.map(([symbol]) => symbol);
 
   for (const fetcher of [fetchYahooIndices, fetchNasdaqIndices]) {
     try {
       const items = await fetcher();
-      if (merge(quotes, items, GROUPS.indices.map(([symbol]) => symbol), (q) => validIndex(q.symbol, q))) sources.push("真实指数");
+      if (merge(quotes, items, indexSymbols, (q) => validIndex(q.symbol, q))) sources.push("真实指数");
     } catch (error) {
       errors.push(`${fetcher.name}: ${error.message}`);
     }
-  }
-
-  try {
-    const items = await fetchNasdaqQuotes(stocks);
-    if (merge(quotes, items, stocks, validStock)) sources.push("Nasdaq 个股");
-  } catch (error) {
-    errors.push(`fetchNasdaqQuotes: ${error.message}`);
   }
 
   try {
@@ -316,9 +310,21 @@ async function buildPayload() {
     errors.push(`fetchYahooQuotes: ${error.message}`);
   }
 
+  const missingStocks = stocks.filter((symbol) => !quotes[symbol]);
+  if (missingStocks.length) {
+    try {
+      const fallbackSymbols = missingStocks.slice(0, 18);
+      const items = await fetchNasdaqQuotes(fallbackSymbols);
+      if (merge(quotes, items, fallbackSymbols, validStock)) sources.push("Nasdaq 补充个股");
+    } catch (error) {
+      errors.push(`fetchNasdaqQuotes: ${error.message}`);
+    }
+  }
+
   const warnings = [];
-  if (!GROUPS.indices.some(([symbol]) => quotes[symbol])) warnings.push("真实指数点位暂时没有返回。");
+  if (!indexSymbols.some((symbol) => quotes[symbol])) warnings.push("真实指数点位暂时没有返回。");
   if (!stocks.some((symbol) => quotes[symbol])) warnings.push("个股行情暂时没有返回，主题板块会留空。");
+  if (!futures.some((symbol) => quotes[symbol])) warnings.push("股指期货暂时没有返回。");
 
   return {
     source: [...new Set(sources)].join(" + ") || "免费行情源暂时限流",
