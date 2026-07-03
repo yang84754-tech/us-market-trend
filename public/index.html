@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>璇璇的小猫美股趋势魔方</title>
+    <link rel="stylesheet" href="./styles.css?v=cat13" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="topbar" aria-label="控制栏">
+        <div class="brand">
+          <div class="logo-mark" aria-hidden="true"><span>猫</span></div>
+          <div>
+            <p class="eyebrow">美股实时雷达</p>
+            <h1>璇璇的小猫美股趋势魔方</h1>
+          </div>
+        </div>
+        <img class="cat-mascot" src="./assets/cat-mascot-lite.png" alt="" aria-hidden="true" />
+        <div class="controls">
+          <label class="select-wrap">
+            <span>主题</span>
+            <select id="sectorSelect"></select>
+          </label>
+          <button id="refreshBtn" class="icon-button" title="刷新行情" aria-label="刷新行情">刷新</button>
+          <label class="toggle">
+            <input id="autoRefresh" type="checkbox" checked />
+            <span>自动刷新</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="status-line" aria-live="polite">
+        <span id="marketState" class="pill">读取中</span>
+        <span id="updatedAt">等待行情...</span>
+        <span id="sourceLabel"></span>
+      </section>
+
+      <section id="errorBanner" class="error-banner" hidden></section>
+      <section class="overview-grid" id="indexCards" aria-label="主要指数"></section>
+
+      <section class="panel mini-panel" aria-label="全板块速览">
+        <div class="panel-head compact-head">
+          <div>
+            <p class="eyebrow">全板块速览</p>
+            <h2>所有主题当前涨跌幅</h2>
+          </div>
+        </div>
+        <div class="theme-strip" id="themeStrip"></div>
+      </section>
+
+      <section class="workspace">
+        <section class="panel wide">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">主题热力榜</p>
+              <h2>主题板块涨跌幅</h2>
+            </div>
+            <div class="panel-actions" aria-label="榜单控制">
+              <div class="segmented" id="metricControls" aria-label="排序方式">
+                <button class="active" type="button" data-metric="combined">综合</button>
+                <button type="button" data-metric="regular">常规</button>
+                <button type="button" data-metric="extended">盘外</button>
+                <button type="button" data-metric="breadth">热度</button>
+              </div>
+              <div class="segmented small" id="filterControls" aria-label="筛选方式">
+                <button class="active" type="button" data-filter="all">全部</button>
+                <button type="button" data-filter="up">上涨</button>
+                <button type="button" data-filter="down">下跌</button>
+              </div>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>主题板块</th>
+                  <th>常规</th>
+                  <th>盘前/盘后</th>
+                  <th>合成</th>
+                  <th>上涨数</th>
+                  <th>强弱</th>
+                </tr>
+              </thead>
+              <tbody id="sectorTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">当前主题</p>
+              <h2 id="sectorTitle">主题明细</h2>
+            </div>
+            <span id="sectorBadge" class="pill">--</span>
+          </div>
+          <div class="sector-score">
+            <div>
+              <span id="scoreLabel">综合趋势</span>
+              <strong id="sectorScore">--</strong>
+            </div>
+            <div class="bar"><i id="sectorBar"></i></div>
+          </div>
+          <div id="memberList" class="member-list"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">盘外信号</p>
+              <h2>股指期货与盘外指数</h2>
+            </div>
+          </div>
+          <div id="futuresList" class="futures-list"></div>
+        </section>
+      </section>
+    </main>
+
+    <script src="./app.js?v=cat13"></script>
+  </body>
+</html>
